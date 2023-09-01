@@ -1,5 +1,7 @@
 CC = $(CROSS_COMPILE)gcc
 
+all: writer
+
 writer: writer.c
 	$(CC) -Wall -O2 -g writer.c -o writer
 
