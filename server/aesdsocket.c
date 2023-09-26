@@ -16,8 +16,13 @@
 #define PORT 9000
 
 bool accepting = true;
-char *filename = "/var/tmp/aesdsocketdata";
 pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER; 
+
+#ifdef USE_AESD_CHAR_DEVICE
+char *filename = "/var/tmp/aesdsocketdata";
+#else
+char *filename = "/dev/aesdchar";
+#endif
 
 struct thread_params {
     int connection_fd;
@@ -225,8 +230,9 @@ int setup_server(bool daemonize) {
 
 void setup_signals() {
 
+#ifndef USE_AESD_CHAR_DEVICE
     struct itimerval delay;
-
+#endif
     struct sigaction a;
     a.sa_handler = signal_handler;
     a.sa_flags = 0;
@@ -242,6 +248,7 @@ void setup_signals() {
         exit(EXIT_FAILURE);
     }
 
+#ifndef USE_AESD_CHAR_DEVICE
     if (sigaction(SIGALRM, &a, NULL) < 0) {
         perror("sigaction");
         exit(EXIT_FAILURE);
@@ -256,6 +263,7 @@ void setup_signals() {
         perror("setitimer");
         exit(EXIT_FAILURE);
     }
+#endif
 }
 
 int main(int argc, char *argv[]) {
@@ -350,7 +358,9 @@ int main(int argc, char *argv[]) {
 
     SLIST_INIT(&threads);
 
+#ifndef USE_AESD_CHAR_DEVICE
     remove(filename);
+#endif
 
     shutdown(server_fd, SHUT_RDWR);
     closelog();
