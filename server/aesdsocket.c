@@ -19,9 +19,9 @@ bool accepting = true;
 pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
 #ifdef USE_AESD_CHAR_DEVICE
-char *filename = "/var/tmp/aesdsocketdata";
-#else
 char *filename = "/dev/aesdchar";
+#else
+char *filename = "/var/tmp/aesdsocketdata";
 #endif
 
 struct thread_params {
