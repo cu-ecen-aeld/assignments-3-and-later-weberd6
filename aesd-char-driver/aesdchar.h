@@ -26,6 +26,8 @@
 struct aesd_dev
 {
     struct aesd_circular_buffer buffer;
+    size_t buffer_size;
+    size_t buffer_len;
     struct aesd_buffer_entry add_entry;
     struct mutex lock;
     struct cdev cdev;     /* Char device structure      */

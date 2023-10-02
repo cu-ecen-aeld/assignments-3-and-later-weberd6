@@ -13,6 +13,8 @@
 #include <sys/time.h>
 #include <pthread.h>
 
+#include "../aesd-char-driver/aesd_ioctl.h"
+
 #define PORT 9000
 
 bool accepting = true;
@@ -118,14 +120,41 @@ void *connection_thread(void *tp) {
         char *line_end;
         while ((line_end = (char*)memchr((void*)line_start, '\n', buffer_len - (line_start - buffer)))) {
 
+            *line_end = '\0';
+
+#ifdef USE_AESD_CHAR_DEVICE
+
+            if (strncmp(line_start, "AESDCHAR_IOCSEEKTO:", strlen("AESDCHAR_IOCSEEKTO:")) == 0) {
+
+                struct aesd_seekto seekto;
+                unsigned int write_cmd, write_cmd_offset;
+
+                sscanf(line_start, "AESDCHAR_IOCSEEKTO:%u,%u", &write_cmd, &write_cmd_offset);
+
+                seekto.write_cmd = write_cmd;
+                seekto.write_cmd_offset = write_cmd_offset;
+
+                if (ioctl(fileno(file), AESDCHAR_IOCSEEKTO, &seekto) < 0) {
+                    perror("ioctl");
+                    goto cleanup;
+                }
+
+            } else {
+
+                fputs(line_start, file);
+                fputc('\n', file);
+            }
+#else
+
             pthread_mutex_lock(&file_mutex);
 
-            *line_end = '\0';
             fputs(line_start, file);
             fputc('\n', file);
-            line_start = line_end + 1;
 
             pthread_mutex_unlock(&file_mutex);
+#endif
+
+            line_start = line_end + 1;
 
             // Seek to beginning of file
 
