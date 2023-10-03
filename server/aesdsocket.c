@@ -143,6 +143,8 @@ void *connection_thread(void *tp) {
 
                 fputs(line_start, file);
                 fputc('\n', file);
+
+                fseek(file, 0, SEEK_SET);
             }
 #else
 
@@ -152,13 +154,13 @@ void *connection_thread(void *tp) {
             fputc('\n', file);
 
             pthread_mutex_unlock(&file_mutex);
-#endif
-
-            line_start = line_end + 1;
 
             // Seek to beginning of file
 
             fseek(file, 0, SEEK_SET);
+#endif
+
+            line_start = line_end + 1;
 
             // Read one line at a time and send back to client
 

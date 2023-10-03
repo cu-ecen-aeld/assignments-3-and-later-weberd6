@@ -146,37 +146,53 @@ out:
 loff_t aesd_llseek(struct file *filp, loff_t off, int whence)
 {
 	struct aesd_dev *dev = filp->private_data; 
+    loff_t retval;
 
-    return fixed_size_llseek(filp, off, whence, dev->buffer_size);
+    if (mutex_lock_interruptible(&dev->lock))
+        return -ERESTARTSYS;
+
+    retval = fixed_size_llseek(filp, off, whence, dev->buffer_size);
+
+    mutex_unlock(&dev->lock);
+
+    return retval;
 }
 
 static long aesd_adjust_file_offset(struct file *filp, unsigned int write_cmd, unsigned int write_cmd_offset)
 {
 	struct aesd_dev *dev = filp->private_data; 
-    struct aesd_buffer_entry *entry1;
-    struct aesd_buffer_entry *entry2;
+    struct aesd_buffer_entry *entry;
     unsigned int i;
+    long retval = 0;
     size_t start_offset = 0;
 
+    if (mutex_lock_interruptible(&dev->lock))
+        return -ERESTARTSYS;
+
     if (write_cmd >= dev->buffer_len) {
-        return -EINVAL;
+        retval = -EINVAL;
+        goto out;
     }
 
-    entry1 = &dev->buffer.entry[dev->buffer.out_offs];
-    entry2 = &dev->buffer.entry[(dev->buffer.out_offs + write_cmd) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED];
+    entry = &dev->buffer.entry[(dev->buffer.out_offs + write_cmd) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED];
 
-    if (write_cmd_offset >= entry2->size) {
-        return -EINVAL;
+    if (write_cmd_offset >= entry->size) {
+        retval = -EINVAL;
+        goto out;
     }
 
-    for (i = dev->buffer.out_offs; i != dev->buffer.out_offs + write_cmd; i = (i + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED)
+    for (i = dev->buffer.out_offs;
+            i != ((dev->buffer.out_offs + write_cmd) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED);
+            i = (i + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED)
     {
         start_offset += dev->buffer.entry[i].size;
     }
 
     filp->f_pos = start_offset + write_cmd_offset;
 
-    return 0;
+out:
+    mutex_unlock(&dev->lock);
+    return retval;
 }
 
 long aesd_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -205,6 +221,7 @@ long aesd_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
             break;
         }
+
         default:
             return -ENOTTY;
     }
